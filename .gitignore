@@ -6,8 +6,11 @@ __pycache__/
 kb/index.npz
 *.db
 /vault/
-/results/
-/docs/
 eval/manual-annotations.md
 eval/notes-L3.md
 reports/report.md
+
+# 未带 tag 的评测跑（临时产物）；已归档的 raw_<arm>_run0/1/2.jsonl 入库
+/results/raw_workflow.jsonl
+/results/raw_agent-baseline.jsonl
+/results/raw_full-context.jsonl

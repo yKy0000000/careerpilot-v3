@@ -5,13 +5,20 @@
 1. 做出带真实数字的项目（评测集 + 指标），写进简历找 agent 开发工作
 2. 借项目吃透 Agent 核心技术：tool calling、检索、评测、缓存
 
-主线权威文档：`路线及资料汇总/CareerPilot-v3-主线提纲-定稿版.md`（L0-L12，不跳级）。
+主线权威文档：`docs/路线/主线提纲.md`（L0-L12，不跳级）。
 
 ## 当前进度
-L0-L9 完成，**L10 缓存布局进行中**（用户自己动手第 1 步：补 hit/miss 落盘 + 有效成本）。
-- L9 已收尾：三臂（workflow / agent-baseline / full-context）跑通，最终报告 `eval/L9-final-report.md`。
-- L10 第 0 步已验证：缓存字段在（官方直连 api.deepseek.com），可测。
-- L9 遗留卫生（tool_trace 落盘 / git 首 commit / pyproject 占位包 / ANALYSIS_SCHEMA 二选一 / 模型名抽常量）仍在，L10 之后补。
+**L0-L11 完成，主线收口。**
+- L9 收尾：三臂（workflow / agent-baseline / full-context）跑通，报告 `reports/L9-final-report.md`。
+- L10 收尾：缓存有效成本、轮内/轮间拆分、`N > H/30` 判据，报告 `reports/L10-final-report.md`。
+- L11 收尾：合并终稿 `reports/L11-项目终稿.md`；方法论讲解 `docs/评测方法论讲解.md`。
+- 评测原始结果已归档入库：`results/raw_<arm>_run0|run1|run2.jsonl`（说明见 `results/README.md`）。
+
+### 剩余可选项
+- L9.5 planning 对照（可选，半天）
+- L11.5 memory 演示（可选）
+- L12 空文件重写 loop.py
+- 卫生项：ANALYSIS_SCHEMA 二选一、模型名抽常量
 
 ## 阶段汇总（做了什么 / 什么收益 / 剩下什么）
 
@@ -34,9 +41,9 @@ L0-L9 完成，**L10 缓存布局进行中**（用户自己动手第 1 步：补
   4. **三臂两两无显著差异**（逐 JD recall 配对 Wilcoxon p=0.34/0.56/0.67）——检索 vs 全灌在 2341 token 量级不可分辨，检索拐点不在这里。
   - 一句话：**逐项可溯源诊断可靠，整体主观打分不可信；检索拐点不在 3k token。**
 - **重大发现**：`deepseek-v4-flash` thinking mode 默认开启，**`temperature=0` 被忽略**（thinking 模式不支持 temperature）。L9「11/30 match_score 翻转」「seed=42 无效」的根因在此——一直是在随机采样，不是确定性推理。
-- **剩下**：卫生项（tool_trace 落盘 / git 首 commit / pyproject 占位包 / ANALYSIS_SCHEMA 二选一 / 模型名抽常量）顺延到 L10 后。
+- **剩下**：无。卫生项 tool_trace 落盘、git 首 commit、pyproject 占位包已在 L10/L11 补齐。
 
-### L10 缓存布局（进行中，执行流程见 `路线及资料汇总/L10-缓存布局-执行流程.md`）
+### L10 缓存布局 ✅（报告 `reports/L10-final-report.md`）
 - **测什么**：开了 DeepSeek 自动前缀缓存后，「检索 vs 全灌」的成本差（L9 的 2.5x）还剩多少 → 验证/改写「检索净负收益」结论。
 - **价目（off-peak 人民币，已核官方）**：输入命中 0.05 / 未命中 1.5 / 输出 4.5 元每百万 tokens。命中折扣 = 1/30。
 - **有效成本 = miss×1.5 + hit×0.05 + output×4.5**（reasoning 已含在 output，无单独计价）。
@@ -44,7 +51,6 @@ L0-L9 完成，**L10 缓存布局进行中**（用户自己动手第 1 步：补
 
 ### 剩下（主线）
 - L9.5 planning 对照（可选，半天）
-- L11 收口
 - L11.5 memory 演示（可选）
 - L12 空文件重写 loop.py
 
@@ -63,9 +69,9 @@ L0-L9 完成，**L10 缓存布局进行中**（用户自己动手第 1 步：补
 - `kb/`：知识库。docs/（个人知识库 4 个 md，按 ## 切块）、index.py（切块+向量化+检索）、index.npz（向量索引，gitignored）
 - `data/`：company.py（search_company 本地公司词表）
 - `eval/`：评测代码 + 输入数据。run.py（评测脚本，支持 `--from-raw` / `--limit` / `--tag`）、wilcoxon_recall.py（配对检验）、dataset.jsonl（ground truth）、aliases.json（技能名归一化）、jds/（30 条真实 JD）、annotate.md / consistency.md / manual-annotations.md（标注准则与一致性）、notes-L3.md
-- `results/`：评测结果。raw_<arm>.jsonl + raw_<arm>_run1/run2.jsonl（原始结果，run1/run2 是确定性对照）
-- `reports/`：阶段报告。report.md（指标流水，追加式）、L9-final-report.md、L10-final-report.md、L11-项目终稿.md
-- `docs/`：大纲/（主线提纲 + Python 手册 + L10 执行流程）、复核记录/（4 份 L9/L10 复核文档）
+- `results/`：评测原始结果。`raw_<arm>_run0|run1|run2.jsonl`（run0 = 基准跑，L10 报告 §3 成本表口径；run1/run2 = 确定性对照对）。9 个文件全为 `thinking=disabled` 口径，说明见 `results/README.md`。不带 tag 跑出的 `raw_<arm>.jsonl` 是临时产物，已 gitignore。
+- `reports/`：阶段报告。report.md（指标流水，追加式，gitignored）、L9-final-report.md、L10-final-report.md、L11-项目终稿.md
+- `docs/`：评测方法论讲解.md（面向外部读者的总讲解）、路线/（主线提纲 + Python 手册 + L10 执行流程 + 归档/）、复核记录/（4 份 L9/L10 复核，按日期命名）
 - `vault/`：Obsidian 学习库（00-inbox.md、复盘-L2/L4/L9/L10、L06 错误回传实验日志、题库/）
 - `careerpilot.db`：save_analysis 落的 SQLite（gitignored）
 
@@ -77,7 +83,7 @@ L0-L9 完成，**L10 缓存布局进行中**（用户自己动手第 1 步：补
 - 复盘旧 arm（不调 LLM，从 raw 重算指标）：`.venv\Scripts\python.exe -X utf8 -m eval.run <arm> --from-raw`
 - 配对检验：`.venv\Scripts\python.exe -X utf8 -m eval.wilcoxon_recall [run1|run2]`
 - `-X utf8` 必带（防中文乱码）；装包用 `uv add`，不用 `pip install`
-- ⚠️ `eval.run` 用 `"w"` 覆盖写 `results/raw_<arm>.jsonl`——`--limit N` 调试会冲掉完整 30 条原始数据，且无备份。跑 `--limit` 前先备份 raw；正式跑不加 `--limit`；连跑两遍验证确定性用 `--tag run1` / `--tag run2`。
+- ⚠️ `eval.run` 用 `"w"` 覆盖写 `results/raw_<arm>_<tag>.jsonl`（无 tag 时写 `raw_<arm>.jsonl`）。归档数据已全部带 `_run0/1/2` 后缀，**不带 tag 的跑不会再覆盖它们**。但重复用同一个 `--tag` 仍会覆盖——新跑一律换新 tag。`--limit N` 只用于调试，正式跑不加。
 
 ## 环境
 - embedding：bge-small-zh-v1.5，**加载路径是 modelscope cache**（`C:\Users\26742\.cache\modelscope\models\AI-ModelScope--bge-small-zh-v1.5\snapshots\master`，`kb/index.py` 硬编码）
