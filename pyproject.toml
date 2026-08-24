@@ -1,0 +1,14 @@
+[project]
+name = "v2"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "numpy>=2.5.2",
+    "openai>=3.0.0",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "sentence-transformers>=5.7.0",
+    "sqlmodel>=0.0.39",
+    "trafilatura>=2.2.0",
+]

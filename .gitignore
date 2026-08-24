@@ -1,0 +1,13 @@
+.venv/
+.env
+.idea/
+__pycache__/
+*.pyc
+kb/index.npz
+*.db
+/vault/
+/results/
+/docs/
+eval/manual-annotations.md
+eval/notes-L3.md
+reports/report.md
