@@ -1,5 +1,6 @@
 from kb.index import load_index, search
 from agent.retrieval import _reconstruct_chunks, INDEX_PATH
+from dataclasses import dataclass
 import httpx
 import trafilatura
 from data.company import company
@@ -14,7 +15,12 @@ TOOLS = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "不要整段JD都放入，每个query中只能有一个技术要求，光秃秃的名词（如只写 'API'）不行，要带动作（如 '构建异步 API 接口'）"},
-                    "top_k": {"type": "integer", "description": "默认 3，最多 8"},
+                    "top_k": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "默认 3，范围 1 到 8",
+                    },
                 },
                 "required": ["query"],
                 "additionalProperties": False,
@@ -53,7 +59,14 @@ TOOLS = [
     }
 ]
 
-def search_my_experience(query: str, top_k: int = 3):
+@dataclass(frozen=True)
+class SearchToolResult:
+    content: str
+    # index 中没有独立 chunk id；source + heading 是项目已有的稳定定位字段。
+    chunk_ids: list[tuple[str, str]]
+
+
+def search_my_experience_with_metadata(query: str, top_k: int = 3) -> SearchToolResult:
 
     # 1. 加载索引 + 重组 chunks
     headings, bodies, sources, embeddings = load_index(INDEX_PATH)
@@ -66,7 +79,13 @@ def search_my_experience(query: str, top_k: int = 3):
     retrieved_text = "\n\n".join(
         f"[来源 {c['source']}] {c['heading']}\n{c['body']}" for c in top_chunks
     )
-    return retrieved_text
+    chunk_ids = [(c["source"], c["heading"]) for c in top_chunks]
+    return SearchToolResult(content=retrieved_text, chunk_ids=chunk_ids)
+
+
+def search_my_experience(query: str, top_k: int = 3) -> str:
+    """保留原有字符串返回接口，Agent Loop 额外读取 metadata。"""
+    return search_my_experience_with_metadata(query, top_k).content
 
 def fetch_jd(url: str) -> str:
     try:

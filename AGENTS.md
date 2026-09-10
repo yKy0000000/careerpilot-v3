@@ -8,16 +8,16 @@
 主线权威文档：`docs/路线/主线提纲.md`（L0-L12，不跳级）。
 
 ## 当前进度
-**L0-L11 完成，主线收口。**
+**L0-L12 完成，项目封版。**
 - L9 收尾：三臂（workflow / agent-baseline / full-context）跑通，报告 `reports/L9-final-report.md`。
 - L10 收尾：缓存有效成本、轮内/轮间拆分、`N > H/30` 判据，报告 `reports/L10-final-report.md`。
-- L11 收尾：合并终稿 `reports/L11-项目终稿.md`；方法论讲解 `docs/评测方法论讲解.md`。
+- L11 收尾：合并终稿 `reports/L11-项目终稿.md`；方法论讲解 `docs/路线/评测方法论讲解.md`。
+- L12 收尾：执行端 schema 校验、有界重试、统一终止状态、重复调用保护与 recall-first SearchPolicy；23 个测试通过，最终 30/30 成功，报告 `reports/L12-final-report.md`。
 - 评测原始结果已归档入库：`results/raw_<arm>_run0|run1|run2.jsonl`（说明见 `results/README.md`）。
 
 ### 剩余可选项
 - L9.5 planning 对照（可选，半天）
 - L11.5 memory 演示（可选）
-- L12 空文件重写 loop.py
 - 卫生项：ANALYSIS_SCHEMA 二选一、模型名抽常量
 
 ## 阶段汇总（做了什么 / 什么收益 / 剩下什么）
@@ -49,10 +49,15 @@
 - **有效成本 = miss×1.5 + hit×0.05 + output×4.5**（reasoning 已含在 output，无单独计价）。
 - **缓存字段**：`prompt_cache_hit_tokens` / `prompt_cache_miss_tokens` 在 usage 里，但 openai 3.0.0 当 extra field——用 `usage.model_dump()` 或属性访问，别用 `vars()`。
 
-### 剩下（主线）
+### 剩下（可选，不再扩展主线）
 - L9.5 planning 对照（可选，半天）
 - L11.5 memory 演示（可选）
-- L12 空文件重写 loop.py
+
+### L12 可靠性收口 ✅（报告 `reports/L12-final-report.md`）
+- **做了什么**：执行端输出/工具参数校验；结构错误最多修复 1 次；总重试最多 2 次；统一 `success / failed / terminated`；连续重复调用保护；recall-first top-9 SearchPolicy。
+- **参数依据**：30 条 observe-only trace 中每 JD search 中位数 10；top-9 固定回放保留 96.6% 唯一 chunk。reasoning 上限按历史 90 条分布从 80 调整为 180（P99=173）。
+- **最终结果**：23 个测试通过；真实 30 条 30/30 成功、0 次重试；gaps micro recall 0.659 vs 平凡基线 0.357（1.85x）；有效成本 0.3502 元。
+- **架构结论**：guarded-agent 与 workflow/full-context recall 不可分辨（p=0.6223/0.9839），成本仍为 workflow 的 4.25x；默认架构继续选固定 top-5。
 
 ## 已锁定决策（别回头改）
 - match_score =「能否胜任」，整数 0-100（5 档 × 20 分）

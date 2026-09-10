@@ -83,6 +83,23 @@ L10 (disabled)：workflow 0.729  =  agent 0.729  >  full-context 0.674
 
 ---
 
+## L12 SearchPolicy 与可靠性收口
+
+最终归档：`raw_agent-baseline_l12_final_run0_20260911.jsonl`。
+
+- 30/30 成功，validation / 工具参数 / 总重试均为 0。
+- recall-first SearchPolicy：真实 search 最多 9 次，低新颖度只记录、不硬拦截。
+- search 请求 315 次，执行 248 次，上限拒绝 67 次；每 JD 平均执行 8.27 次。
+- gaps micro recall = 0.659，等预算平凡基线 = 0.357，lift = 1.85x。
+- evidence 溯源率 = 0.896，null baseline = 0.008。
+- 有效成本 = 0.3502 元；历史 agent baseline 三次为 0.4020 / 0.3662 / 0.3683 元。
+- 与历史三次逐 JD 配对 recall 的 Wilcoxon p = 0.4431 / 0.1347 / 0.0699，均不显著，但方向偏低，不能声称 recall 无损。
+- 最终三臂替换口径保留未改动的 workflow/full-context run0：macro recall = 0.672 / 0.652 / 0.646（guarded-agent），guarded-agent 对前两臂 p=0.6223 / 0.9839；成本 = 0.0824 / 0.0989 / 0.3502 元。
+
+详细口径见 `reports/L12-final-report.md`。
+
+---
+
 ## 复算方法
 
 不调 LLM，从原始结果重算指标并追加写入 `reports/report.md`：
@@ -152,5 +169,8 @@ for p in sorted(glob.glob('results/*.jsonl')):
 | `iterations` | agent arm 的工具调用轮数（其余 arm 为 `null`） |
 | `total_tokens` / `hit_tokens` / `miss_tokens` | 缓存计费三分量；`output = total - hit - miss` |
 | `tool_trace` / `per_turn_cache` | agent arm 的逐轮工具与缓存明细 |
+| `validation_trace` / `retry_counts` | 输出校验动作及独立重试计数（L12 新增） |
+| `status` | `success / failed / terminated`（L12 新增） |
+| `termination_reason` / `termination_detail` | 非成功结果的最小错误类型与具体原因（L12 新增） |
 | `latency_ms` | 端到端耗时 |
 | `error` | 失败原因；9 个文件均为 30/30 成功，全部为 `null` |

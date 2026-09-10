@@ -6,6 +6,8 @@
   .venv\\Scripts\\python.exe -X utf8 -m eval.run full-context
   （可选 --limit N 只跑前 N 条，调试用）
   （可选 --tag NAME 把 raw 落盘到 raw_<arm>_<NAME>.jsonl，连跑两遍验证确定性用）
+  （agent-baseline 可选 --search-policy-observe-only，只记录策略命中但不拦截）
+  （可选 --jd-ids jd-01,jd-02，只运行指定 JD）
   （可选 --from-raw 从 eval/raw_<arm>.jsonl 重算指标并写 report，不调 LLM）
 
 产出：
@@ -139,24 +141,38 @@ def evidence_null_baseline(rows: list[dict], chunks: list[dict]) -> float:
     return hit / tot if tot else float("nan")
 
 
-def eval_one(arm: str, row: dict) -> dict:
+def eval_one(arm: str, row: dict, search_policy_observe_only: bool = False) -> dict:
     jd_input = f"公司名称：{row['company']}\n职位名称：{row['title']}\n\n{row['jd_text']}"
     jd_id = row["jd_id"]
     t0 = time.time()
     buf = io.StringIO()
     try:
         tool_trace = None
+        validation_trace = None
         per_turn_cache = None
+        retry_counts = None
+        status = "success"
+        termination_reason = None
+        termination_detail = None
         with redirect_stdout(buf):
             if arm == "agent-baseline":
-                outcome = run_agent(jd_input, jd_id)
+                outcome = run_agent(
+                    jd_input,
+                    jd_id,
+                    search_policy_observe_only=search_policy_observe_only,
+                )
                 result = outcome["result"]
                 iterations = outcome["iterations"]
                 tokens = outcome["total_tokens"]
                 hit_tokens = outcome["hit_tokens"]
                 miss_tokens = outcome["miss_tokens"]
                 tool_trace = outcome["tool_trace"]
+                validation_trace = outcome["validation_trace"]
                 per_turn_cache = outcome["per_turn_cache"]
+                retry_counts = outcome["retry_counts"]
+                status = outcome["status"]
+                termination_reason = outcome["termination_reason"]
+                termination_detail = outcome["termination_detail"]
             elif arm == "full-context":
                 result, usage = run_full_context(jd_input)
                 iterations = None
@@ -181,21 +197,46 @@ def eval_one(arm: str, row: dict) -> dict:
             "hit_tokens": hit_tokens,
             "miss_tokens": miss_tokens,
             "tool_trace": tool_trace,
+            "validation_trace": validation_trace,
+            "retry_counts": retry_counts,
+            "status": status,
+            "termination_reason": termination_reason,
+            "termination_detail": termination_detail,
+            "search_policy_mode": (
+                "observe_only" if arm == "agent-baseline" and search_policy_observe_only
+                else "enforce" if arm == "agent-baseline"
+                else None
+            ),
             "per_turn_cache": per_turn_cache,
             "latency_ms": int((time.time() - t0) * 1000),
-            "error": None,
+            "error": (
+                None
+                if status == "success"
+                else f"{status}: {termination_reason}: {termination_detail or ''}".rstrip()
+            ),
         }
     except Exception as e:
+        trace_data = getattr(e, "trace_data", {})
         return {
             "jd_id": jd_id,
             "arm": arm,
             "human_match_score": row["human_match_score"],
             "model_result": None,
-            "iterations": None,
-            "total_tokens": None,
-            "hit_tokens": None,
-            "miss_tokens": None,
-            "tool_trace": None,
+            "iterations": trace_data.get("iterations"),
+            "total_tokens": trace_data.get("total_tokens"),
+            "hit_tokens": trace_data.get("hit_tokens"),
+            "miss_tokens": trace_data.get("miss_tokens"),
+            "tool_trace": trace_data.get("tool_trace"),
+            "validation_trace": trace_data.get("validation_trace"),
+            "retry_counts": trace_data.get("retry_counts"),
+            "status": "failed",
+            "termination_reason": "tool_execution_error",
+            "termination_detail": f"{type(e).__name__}: {e}",
+            "search_policy_mode": (
+                "observe_only" if arm == "agent-baseline" and search_policy_observe_only
+                else "enforce" if arm == "agent-baseline"
+                else None
+            ),
             "per_turn_cache": None,
             "latency_ms": int((time.time() - t0) * 1000),
             "error": f"{type(e).__name__}: {e}",
@@ -340,8 +381,16 @@ def append_report(arm: str, fp: str, m: dict, tstamp: str) -> None:
         f.write("\n".join(lines))
 
 
-def run(arm: str, limit: int | None, tag: str | None = None) -> None:
+def run(
+    arm: str,
+    limit: int | None,
+    tag: str | None = None,
+    search_policy_observe_only: bool = False,
+    jd_ids: set[str] | None = None,
+) -> None:
     rows = load_dataset()
+    if jd_ids is not None:
+        rows = [row for row in rows if row["jd_id"] in jd_ids]
     if limit:
         rows = rows[:limit]
     alias_map = load_aliases()
@@ -354,7 +403,7 @@ def run(arm: str, limit: int | None, tag: str | None = None) -> None:
     results = []
     with open(raw_path, "w", encoding="utf-8") as f:
         for row in rows:
-            rec = eval_one(arm, row)
+            rec = eval_one(arm, row, search_policy_observe_only)
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
             results.append(rec)
@@ -407,7 +456,14 @@ def main() -> None:
     tag = None
     if "--tag" in sys.argv:
         tag = sys.argv[sys.argv.index("--tag") + 1]
-    run(arm, limit, tag)
+    jd_ids = None
+    if "--jd-ids" in sys.argv:
+        jd_ids = set(sys.argv[sys.argv.index("--jd-ids") + 1].split(","))
+    search_policy_observe_only = "--search-policy-observe-only" in sys.argv
+    if search_policy_observe_only and arm != "agent-baseline":
+        print("--search-policy-observe-only 仅适用于 agent-baseline")
+        sys.exit(1)
+    run(arm, limit, tag, search_policy_observe_only, jd_ids)
 
 
 if __name__ == "__main__":
